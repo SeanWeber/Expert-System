@@ -18,21 +18,10 @@ def countrySearch(country, key):
       
     archive = zipfile.ZipFile("countries.zip", "r") #access a zip archive
     file2 = archive.open(page, "r")
-    soup = BeautifulSoup(file2)
-    
-    possibilities = dict()
     
     
+    possibilities = parseHtml(file2)
     
-    for attr in soup.findAll("div", "category"):
-    	aTag = attr.find("a")
-    	if aTag: 
-    		dataTag = attr.parent.parent.findNextSibling("tr").find("div", "category_data")
-    		if dataTag:
-    			#alot of the titles contain extra info after a " - " which is throwing off the search
-    			title = formatKey(aTag.string)
-    			data = dataTag.string
-    			possibilities[title] = data
     	
     if key == ";lst":
     	for key in possibilities.keys():
@@ -56,7 +45,46 @@ def countrySearch(country, key):
     else:
     	for result in results:
     		print result + ": " 
-    		print "\t" + possibilities[result]
+    		print possibilities[result]
+    		
+def parseHtml(htmlFile):
+	soup = BeautifulSoup(htmlFile)
+    
+	possibilities = dict()    
+    
+	for attr in soup.findAll("div", "category"):
+		aTag = attr.find("a")
+		if aTag: 
+			trTag = attr.parent.parent.findNextSibling("tr")
+    		
+			if len(trTag) > 1:
+				contents = []
+				for div in trTag.findAll("div", "category"):
+					if len(div.contents) > 0:
+						contents.append(div.contents[0].strip())
+						for span in div.find("span"):
+							contents.append(span.string.strip())
+    		
+				for div in trTag.findAll("div", "category_data"):
+					if div.string:
+						contents.append(div.string)
+    			
+				data = "\r\n".join(contents)
+			elif trTag.find("td"):
+				data = trTag.find("td").find("div", "category_data").string
+				print data
+			else: 
+				data = trTag.find("div", "category_data").string
+    			
+   		#alot of the titles contain extra info after a " - " which is throwing off the search
+			title = formatKey(aTag.string)
+   		
+			if possibilities.has_key(title):
+				data = possibilities[title] + "\r\n" + data
+    			
+			possibilities[title] = data
+   		
+	return possibilities
     
 def formatKey(key):
 	words = key.split()
@@ -72,12 +100,15 @@ def formatKey(key):
 			
 
 def getQuery():
-	userInput = raw_input("What would you like to know?")
+	userInput = raw_input("What would you like to know?").lower()
 	wordsToRemove = ["how", "what", "the", "a", "an", "which", "of", "in", ",", ":", ".", "?", "is"]
-	for word in wordsToRemove:
-		userInput = userInput.replace(" " + word + " ", "")
-		
-	userInput = userInput.strip()	
+	
+	words = []
+	for word in userInput.split():
+		if word not in wordsToRemove:
+			words.append(word)
+
+	userInput = " ".join(words)
 		
 	print userInput
 	
